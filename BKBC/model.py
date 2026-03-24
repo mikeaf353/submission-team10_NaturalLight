@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""
+model.py — Model definitions and shared constants
+==================================================
+Central place for all configuration that is shared across preprocess.py,
+train_eval.py, and predict.py.  Import from here rather than duplicating
+constants in each script.
+
+Exported symbols
+----------------
+CLINICAL_FEATURES  : list[str]   — clinical covariate column names
+CV_FOLDS           : int         — number of stratified CV folds
+TEST_SIZE          : float       — fraction of data held out as test set
+RANDOM_SEED        : int         — global random seed for reproducibility
+MODELS             : dict        — name → sklearn-compatible estimator
+build_model(name)  : function    — return a fresh (unfitted) model by name
+
+Sanity check
+------------
+    python model.py
+"""
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from xgboost import XGBClassifier
+
+# ── SECTION 0: Constants ───────────────────────────────────────────────────────
+
+# Clinical features included alongside the 6,592 protein abundances.
+# These must be present in merged_anonymized.csv.
+CLINICAL_FEATURES = ["age", "sex", "baseline_egfr_23"]
+
+CV_FOLDS    = 5      # stratified k-fold splits for cross-validation
+TEST_SIZE   = 0.2    # fraction of labelled data held out as a final test set
+RANDOM_SEED = 42     # controls all random operations for reproducibility
+
+# ── SECTION 1: Model definitions ──────────────────────────────────────────────
+# Each entry: display name → sklearn-compatible estimator.
+#
+# Both models are evaluated with the same CV strategy and on the same
+# held-out test set so their performance is directly comparable.
+#
+# Design notes:
+#   XGBoost  — tree ensemble; scale-invariant; colsample_bytree=0.1 is
+#               aggressive feature subsampling that helps with p >> n
+#   Lasso LR — linear + L1 penalty; produces sparse solutions (many zero
+#               coefficients), making it easy to identify key proteins;
+#               StandardScaler is required because LR is scale-sensitive
+
+MODELS = {
+    "XGBoost": XGBClassifier(
+        n_estimators     = 100,
+        max_depth        = 3,        # shallow trees reduce overfitting
+        learning_rate    = 0.1,
+        subsample        = 0.8,
+        colsample_bytree = 0.1,      # sample 10 % of features per tree
+        eval_metric      = "logloss",
+        random_state     = RANDOM_SEED,
+        n_jobs           = -1,
+    ),
+    "Lasso LR": Pipeline([
+        ("scaler", StandardScaler()),
+        ("clf", LogisticRegression(
+            penalty      = "l1",
+            solver       = "liblinear",
+            C            = 0.1,      # strong regularisation for p >> n
+            max_iter     = 1000,
+            random_state = RANDOM_SEED,
+        )),
+    ]),
+}
+
+
+# ── SECTION 2: Factory function ────────────────────────────────────────────────
+
+def build_model(name: str):
+    """
+    Return a fresh (unfitted) model by name.
+
+    Parameters
+    ----------
+    name : str   one of the keys in MODELS
+
+    Returns
+    -------
+    sklearn-compatible estimator (unfitted clone)
+
+    Example
+    -------
+    >>> from model import build_model
+    >>> clf = build_model("XGBoost")
+    >>> clf.fit(X_train, y_train)
+    """
+    from sklearn.base import clone
+    if name not in MODELS:
+        raise ValueError(f"Unknown model '{name}'. Choose from: {list(MODELS)}")
+    return clone(MODELS[name])
+
+
+# ── SECTION 3: Sanity check ────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import numpy as np
+
+    print("Models defined:")
+    for name in MODELS:
+        m = build_model(name)
+        print(f"  {name}: {type(m).__name__}")
+
+    print(f"\nClinical features : {CLINICAL_FEATURES}")
+    print(f"CV folds          : {CV_FOLDS}")
+    print(f"Test size         : {TEST_SIZE}")
+    print(f"Random seed       : {RANDOM_SEED}")
+
+    # Quick smoke test: fit on random data
+    rng = np.random.default_rng(0)
+    X_dummy = rng.standard_normal((50, 10))
+    y_dummy = rng.integers(0, 2, 50)
+    for name in MODELS:
+        m = build_model(name)
+        m.fit(X_dummy, y_dummy)
+        proba = m.predict_proba(X_dummy)
+        assert proba.shape == (50, 2), "predict_proba shape mismatch"
+        print(f"  [{name}] smoke test passed")

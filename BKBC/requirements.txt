@@ -1,0 +1,31 @@
+# Boston Kidney Biopsy Cohort — Python dependencies
+#
+# SETUP WITH UV (recommended — significantly faster than pip)
+# -----------------------------------------------------------
+#   # Install uv if you don't have it
+#   curl -Lsf https://astral.sh/uv/install.sh | sh
+#
+#   # Create a virtual environment and install all dependencies
+#   cd /projectnb/medaihack/BKBC-hackathon
+#   uv venv
+#   source .venv/bin/activate
+#   uv pip install -r starter_code/requirements.txt
+#
+# SETUP WITH PIP (fallback)
+# -------------------------
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r starter_code/requirements.txt
+#
+# VERIFY
+# ------
+#   python starter_code/model.py
+
+numpy==2.4.3
+pandas==3.0.1
+scikit-learn==1.8.0
+xgboost==3.2.0
+matplotlib==3.10.8
+scipy==1.17.1
+shap==0.51.0
+openpyxl==3.1.5
