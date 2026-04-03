@@ -74,10 +74,9 @@ IDX_TO_LABEL: Dict[int, str] = {v: k for k, v in LABEL_MAP.items()}
 # Number of output classes: 2 for binary VITUMOR vs NONVITUMOR classification.
 NUM_CLASSES: int = 2
 
-# Patch feature dimension: default to 768 for cTransPath encoder.
-# Must match preprocess.py output. If you use another encoder with a different
-# output feature dimension, make sure to update here.
-FEATURE_DIM: int = 768
+# Patch feature dimension: 1536 for UNI2-h ViT-Giant encoder.
+# Must match the features extracted by preprocess.py.
+FEATURE_DIM: int = 1536
 
 
 # =============================================================================
@@ -161,10 +160,13 @@ class SlideDataset(Dataset):
         # weights_only=True is a security flag that prevents loading arbitrary
         # Python objects — safe here since the file contains only tensors.
         try:
-            features = torch.load(sample["feat_path"], weights_only=True)
+            data = torch.load(sample["feat_path"], weights_only=True)
         except TypeError:
             # Older PyTorch versions don't support weights_only — fall back
-            features = torch.load(sample["feat_path"])
+            data = torch.load(sample["feat_path"])
+        # Each .pt file is a dict with "features" (N, 1536) and "coords" (N, 2).
+        # Load only features for training; coords are available for spatial models.
+        features = data["features"]
         return features, sample["label"]
 
 
@@ -259,8 +261,7 @@ class MILClassifier(nn.Module):
 
     Parameters
     ----------
-    feature_dim : patch feature dimension (default 768 — matches cTransPath encoder
-                  but subject to change)
+    feature_dim : patch feature dimension (default 1536 — matches UNI2-h ViT-Giant encoder)
     hidden_dim  : size of the hidden layer in the MLP head. Try 128, 256, or 512.
     num_classes : number of output classes (3 — don't change)
     dropout     : dropout probability after the ReLU in the MLP head.
@@ -362,7 +363,7 @@ def build_model(feature_dim: int = FEATURE_DIM,
 
     Parameters
     ----------
-    feature_dim : patch feature dimension (default 768; subject to change)
+    feature_dim : patch feature dimension (default 1536 — UNI2-h ViT-Giant)
     hidden_dim  : hidden size for the MLP head
     num_classes : number of output classes (3 — do not change)
     dropout     : dropout probability in the MLP head

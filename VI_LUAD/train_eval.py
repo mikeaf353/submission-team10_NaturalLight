@@ -9,8 +9,8 @@ docstring to understand this training and evaluation pipeline. It:
   4. Aggregates and prints cross-validation performance
 
 The model (from model.py) is a mean-pooling MIL classifier:
-  - Input: a bag of N patch feature vectors (N × feature_dim; default feature_dim=768)
-  - Step 1: Mean pooling → one 768-dim slide embedding
+  - Input: a bag of N patch feature vectors (N × feature_dim; default feature_dim=1536)
+  - Step 1: Mean pooling → one 1536-dim slide embedding
   - Step 2: MLP head → binary logits (NONVITUMOR=0, VITUMOR=1)
 
 Training details (baseline — minimum setup):

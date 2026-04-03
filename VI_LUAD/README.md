@@ -17,6 +17,19 @@ NONTUMOR slides (normal lung tissue) are excluded from the train/test splits but
 
 ---
 
+## Getting Started
+
+Copy the `starter_code` directory to your own project directory and work from there. All paths in the scripts are relative to your project directory.
+
+```bash
+cp -r /projectnb/medaihack/starter_code <your_project_dir>/
+cd <your_project_dir>
+```
+
+Run all subsequent commands from `<your_project_dir>`.
+
+---
+
 ## Environment Setup
 
 Each team should create their own conda environment. This avoids package version conflicts across teams and lets you freely install any additional packages your approach requires.
@@ -50,95 +63,96 @@ pip install <package-name>
 ## Pipeline Overview
 
 ```
-WSI (.svs files, 709 total)
+Pre-extracted UNI2-h features (dict with "features" N×1536 and "coords" N×2, one .pt file per slide)
+      │   /projectnb/medaihack/VI_LUAD_Project/WSI_Data/processed/
       │
       ▼
-preprocess.py  ──►  features/<slide>.pt    (patch feature tensors, shape N×768)
-                    splits/fold_{0-4}.json  (train/test patient-level splits,
-                                             VITUMOR/NONVITUMOR only)
+create_splits.py  ──►  splits/fold_{0-4}.json   (train/test patient-level splits)
       │
       ▼
-train_eval.py  ──►  checkpoints/fold_{0-4}.pth          (trained model weights)
-                    predictions/fold_{0-4}.json          (per-slide test predictions)
-                    predictions/fold_{0-4}_patients.json (per-patient test predictions)
-                    console: per-fold metrics + CV summary (slide-level and patient-level)
+train_eval.py     ──►  checkpoints/fold_{0-4}.pth          (trained model weights)
+                       predictions/fold_{0-4}.json          (per-slide test predictions)
+                       predictions/fold_{0-4}_patients.json (per-patient test predictions)
+                       console: per-fold metrics + CV summary (slide-level and patient-level)
 ```
+
+Features have been pre-extracted from all 709 slides using [UNI2-h](https://huggingface.co/MahmoodLab/UNI2-h) (ViT-Giant pretrained on large-scale pathology images) and are ready to use. Each `.pt` file is a Python dict with two tensors:
+- `data["features"]` — shape `(N_patches, 1536)`, one UNI2-h feature vector per tissue patch
+- `data["coords"]`   — shape `(N_patches, 2)`, ordinal `(col, row)` grid index of each patch (adjacent patches differ by 1). The baseline model does not use coordinates.
+
+The number of patches per slide varies with tissue area. The baseline model uses 506 of these slides (VITUMOR and NONVITUMOR only); the remaining 203 NONTUMOR slides have features available for optional use.
 
 ---
 
-## Step 1 — Feature Extraction (`preprocess.py`)
+## Step 1 — Create Data Splits (`create_splits.py`)
 
-Tiles each WSI into patches, runs each patch through [cTransPath](https://github.com/Xiyue-Wang/TransPath) (a pathology-specific vision transformer) to produce a 768-dim feature vector, and saves 5-fold patient-level cross-validation splits.
+Reads the clinical label file, groups slides by patient, and creates 5-fold stratified patient-level cross-validation splits. You must run this before training.
+
+**Why patient-level?** The same patient may contribute multiple slides. Splitting at the slide level would allow slides from the same patient to appear in both train and test — a form of data leakage. Patient-level splits prevent this.
 
 **Submit the job:**
 ```bash
-cp starter_code/run_preprocess_example.sh my_preprocess.sh
-# Edit my_preprocess.sh: fill in all <placeholder> paths
-qsub my_preprocess.sh
+# Edit the script: fill in <your_project_group> and <your_project_dir>
+qsub starter_code/run_create_splits_example.sh
 ```
 
-**Monitor:**
+Since no GPU is required, this completes in seconds. You can also run it directly in a terminal:
 ```bash
-tail -f preprocess.log
-qstat -u $USER
+python starter_code/create_splits.py
 ```
 
 **Expected output (abridged):**
 ```
-==========================================
-Job started: Sun Mar 15 21:08:25 EDT 2026
-Running on host: scc-j13
-==========================================
-Using device: cuda
-  GPU: NVIDIA L40S
+============================================================
+STEP: Loading label file
+============================================================
+Loaded 506 VITUMOR/NONVITUMOR slides
 
-Kept 506 VITUMOR/NONVITUMOR slides for splits (203 NONTUMOR slides excluded from
-splits but their features will still be extracted for optional use)
+============================================================
+STEP: Creating cross-validation splits
+============================================================
 
 Patient-level label distribution:
-  NONVITUMOR: 127 patients
-  VITUMOR:    118 patients
+  NONVITUMOR: 150 patients
+  VITUMOR: 95 patients
   Total: 245 patients, 506 slides
 
 Fold 0: train=403 slides (196 patients) | test=103 slides (49 patients)
-  train labels: {'NONVITUMOR': 232, 'VITUMOR': 171}
-  test  labels: {'NONVITUMOR':  59, 'VITUMOR':  44}
+  train labels: {'NONVITUMOR': 229, 'VITUMOR': 174}
+  test  labels: {'NONVITUMOR': 63, 'VITUMOR': 40}
 ...
-Saved fold 0 → splits/fold_0.json
-...
-Saved fold 4 → splits/fold_4.json
 
 ============================================================
-STEP: Loading cTransPath feature extractor
+STEP: Saving splits
 ============================================================
-[1/709] Processing 10987.svs ...
-  Found 1453 tissue patches in 10987.svs
-  Saved features: shape=torch.Size([1453, 768]) → features/10987.pt
-[2/709] Processing 11003.svs ...
-  Found 2312 tissue patches in 11003.svs
-  Saved features: shape=torch.Size([2312, 768]) → features/11003.pt
+Saved fold 0 → starter_code/splits/fold_0.json
 ...
-[709/709] Processing NLSI0000061.svs ...
-==========================================
-Job finished: Sun Mar 15 22:14:52 EDT 2026
-==========================================
+Saved fold 4 → starter_code/splits/fold_4.json
+
+Done! Splits saved to: starter_code/splits
 ```
-
-Each `.pt` file is a PyTorch tensor of shape `(N_patches, 768)` — one row per tissue patch. The number of patches per slide varies depending on tissue area.
 
 ---
 
 ## Step 2 — Training and Evaluation (`train_eval.py`)
 
-Trains a Multiple Instance Learning (MIL) model on the extracted features and evaluates it with 5-fold cross-validation. Metrics are reported both per-slide and per-patient.
+Trains a Multiple Instance Learning (MIL) model on the pre-extracted UNI2-h features and evaluates it with 5-fold cross-validation. Metrics are reported both per-slide and per-patient.
 
 **Patient-level aggregation rule:** a patient is predicted VITUMOR if at least one of their slides is predicted VITUMOR (argmax == 1). For AUC, the patient score is max(P(VITUMOR)) across all slides.
 
-**Submit the job:**
+### Point to the pre-extracted features
+
+When submitting your job, pass:
+```
+--features_dir /projectnb/medaihack/VI_LUAD_Project/WSI_Data/processed
+--splits_dir   starter_code/splits
+```
+
+### Submit the job
+
 ```bash
-cp starter_code/run_train_eval_example.sh my_train_eval.sh
-# Edit my_train_eval.sh: fill in all <placeholder> paths
-qsub my_train_eval.sh
+# Edit the script: fill in <your_project_group> and <your_project_dir>
+qsub starter_code/run_train_eval_example.sh
 ```
 
 **Monitor:**
@@ -148,43 +162,37 @@ tail -f train_eval.log
 
 **Expected output (abridged):**
 ```
-==========================================
-Job started:  Sun Mar 15 22:37:56 EDT 2026
-Host:         scc-j13
-Features dir: 709 .pt files available
-Splits dir:   5 fold JSON files
-==========================================
 Device: cuda
-  GPU: NVIDIA L40S
+  GPU: NVIDIA A100 80GB PCIe
 
 ============================================================
 FOLD 0  —  403 train slides / 103 test slides
 ============================================================
 
 [Data loading]
-  [SlideDataset] Ready: 403 slides from 'starter_code/features'.
-  [SlideDataset] Ready: 103 slides from 'starter_code/features'.
-MILClassifier (mean pooling) built: 197,378 trainable parameters
-  feature_dim=768  hidden_dim=256  num_classes=2  dropout=0.25
+  [SlideDataset] Ready: 403 slides from '/projectnb/medaihack/VI_LUAD_Project/WSI_Data/processed'.
+  [SlideDataset] Ready: 103 slides from '/projectnb/medaihack/VI_LUAD_Project/WSI_Data/processed'.
+MILClassifier (mean pooling) built: 393,986 trainable parameters
+  feature_dim=1536  hidden_dim=256  num_classes=2  dropout=0.25
 
 [Training]  epochs=20  lr=0.0001  weight_decay=0.0001  batch_size=1
   (printing test metrics every 5 epochs)
-  Epoch   1/20  train_loss=0.6782
+  Epoch   1/20  train_loss=0.6740
   ...
-  Epoch   5/20  train_loss=0.6650  test_logloss=0.7021  test_auc=0.5810
+  Epoch   5/20  train_loss=0.6074  test_logloss=0.6098  test_auc=0.6782
   ...
-  Epoch  20/20  train_loss=0.6461  test_logloss=0.6730  test_auc=0.5917
+  Epoch  20/20  train_loss=0.5046  test_logloss=0.6591  test_auc=0.6357
 
-[Evaluation]  Loading best checkpoint (train_loss=0.6461)
+[Evaluation]  Loading best checkpoint (train_loss=0.5046)
 
   [Per-slide]
-    Log loss : 0.6730
-    AUC      : 0.5917
+    Log loss : 0.6591
+    AUC      : 0.6357
 
   [Per-patient]
-    Log loss : 0.6373
-    AUC      : 0.6632
-    Accuracy : 0.6122
+    Log loss : 0.6888
+    AUC      : 0.6211
+    Accuracy : 0.5102
 
   Checkpoint saved → checkpoints/fold_0.pth
   Per-slide predictions  saved → predictions/fold_0.json
@@ -201,35 +209,35 @@ CROSS-VALIDATION SUMMARY
   [Per-slide]
     Fold    Log Loss       AUC
   ------  ----------  --------
-       0      0.6730    0.5917
-       1      0.6321    0.7308
-       2      0.6502    0.6004
-       3      0.6601    0.6726
-       4      0.7255    0.5952
+       0      0.6591    0.6357
+       1      0.8450    0.5696
+       2      0.5912    0.7338
+       3      0.8079    0.5946
+       4      0.7373    0.6157
   ------  ----------  --------
-    mean      0.6682    0.6381
-     std      0.0316    0.0552
+    mean      0.7281    0.6299
+     std      0.0934    0.0564
 
   [Per-patient]
     Fold    Log Loss       AUC    Accuracy
   ------  ----------  --------  ----------
-       0      0.6373    0.6632      0.6122
-       1      0.6228    0.7088      0.6939
-       2      0.6524    0.6316      0.6122
-       3      0.6258    0.7368      0.6327
-       4      0.6523    0.6667      0.5918
+       0      0.6888    0.6211      0.5102
+       1      0.7925    0.6000      0.5306
+       2      0.6263    0.7316      0.6531
+       3      0.6534    0.6632      0.6939
+       4      0.7252    0.6404      0.6122
   ------  ----------  --------  ----------
-    mean      0.6381    0.6814      0.6286
-     std      0.0126    0.0370      0.0351
+    mean      0.6972    0.6512      0.6000
+     std      0.0581    0.0453      0.0702
 
 Done. Checkpoints saved to: starter_code/checkpoints
       Predictions saved to:  starter_code/predictions
 ==========================================
-Job finished: Sun Mar 15 22:41:26 EDT 2026
+Job finished: Wed Apr  1 23:19:37 EDT 2026
 ==========================================
 ```
 
-The baseline achieves ~0.68 patient-level AUC. NONVITUMOR patients are consistently harder to classify correctly — this is the primary failure mode and a natural starting point for improvement.
+The baseline achieves ~0.65 patient-level AUC. NONVITUMOR patients are consistently harder to classify correctly — this is the primary failure mode and a natural starting point for improvement.
 
 Each `predictions/fold_{i}.json` contains one entry per test slide with `filename`, `pid`, `true_label`, `pred_label`, and per-class probabilities (`NONVITUMOR`, `VITUMOR`).
 
@@ -239,25 +247,21 @@ Each `predictions/fold_{i}_patients.json` contains one entry per test patient wi
 
 ## Directory Structure
 
-After running both steps your directory should look like:
+After training your directory should look like:
 
 ```
 <your_project_dir>/
 ├── starter_code/
-│   ├── preprocess.py              # feature extraction + splits
+│   ├── create_splits.py           # patient-level cross-validation splits
 │   ├── model.py                   # MIL model definition
 │   ├── train_eval.py              # training + evaluation loop
-│   ├── ctran.py                   # cTransPath architecture (do not modify)
-│   ├── run_preprocess_example.sh
+│   ├── splits/
+│   │   ├── fold_0.json            # {"train": [...], "test": [...]}
+│   │   └── ...  fold_4.json
+│   ├── run_create_splits_example.sh
 │   ├── run_train_eval_example.sh
 │   ├── requirements.txt
 │   └── README.md
-├── features/
-│   ├── 10987.pt                   # (N_patches, 768) tensor per slide
-│   └── ...
-├── splits/
-│   ├── fold_0.json                # {"train": [...], "test": [...]}
-│   └── ...  fold_4.json
 ├── checkpoints/
 │   ├── fold_0.pth                 # best model checkpoint per fold
 │   └── ...  fold_4.pth
@@ -267,20 +271,27 @@ After running both steps your directory should look like:
     └── ...  fold_4.json / fold_4_patients.json
 ```
 
+Pre-extracted features (read-only, shared across teams):
+```
+/projectnb/medaihack/VI_LUAD_Project/WSI_Data/processed/
+    ├── 10987.pt                   # dict: "features" (N_patches, 1536), "coords" (N_patches, 2)
+    └── ...
+```
+
 ---
 
 ## Tips for Improvement
 
 The baseline is intentionally simple. Here are directions worth exploring:
 
-- **Better patch features**: swap in a stronger pretrained encoder (e.g. a larger pathology foundation model). This is likely the highest-leverage change. Tuning `--patch_size` or `--read_level` is also possible but requires re-running the full preprocessing pipeline, which is time-consuming — only worth it if you have a specific reason.
-- **Better aggregation**: the baseline uses mean pooling (all patches weighted equally) — consider attention pooling, clustering, graph-based methods, or transformer-based aggregation over patches.
-- **Class imbalance**: NONVITUMOR (127 patients) slightly outnumbers VITUMOR (118 patients). Try class-weighted loss or label smoothing if your model skews toward one class.
-- **Longer training**: the baseline runs only 20 epochs with no scheduler. A cosine annealing schedule may help. For early stopping, consider adding a validation split — you can do this by modifying `create_patient_splits` in `preprocess.py` to produce train/val/test splits instead of train/test.
-- **Leveraging NONTUMOR slides**: 203 NONTUMOR slides have features available in `features/`. These are excluded from the train/test splits but can be used in creative ways — for example, as additional negative examples or to help the model learn discriminative tumor features.
+- **Better aggregation**: the baseline uses mean pooling (all patches weighted equally) — consider attention pooling, clustering, or transformer-based aggregation over patches.
+- **Spatial models**: each `.pt` file includes `data["coords"]` — the ordinal `(col, row)` grid position of every patch. These coordinates can be used to build a spatial graph between neighboring patches (e.g., with PyTorch Geometric) or to add positional encodings before aggregation.
+- **Class imbalance**: NONVITUMOR (150 patients) outnumbers VITUMOR (95 patients). Try class-weighted loss or label smoothing if your model skews toward one class.
+- **Longer training**: the baseline runs only 20 epochs with no scheduler. A cosine annealing schedule may help. For early stopping, consider adding a validation split — you can do this by modifying `create_patient_splits` in `create_splits.py` to produce train/val/test splits instead of train/test.
+- **Leveraging NONTUMOR slides**: 203 NONTUMOR slides have features available in the shared features directory. These are excluded from the train/test splits but can be used in creative ways — for example, as additional negative examples or to help the model learn discriminative tumor features.
 
 For a full list of configurable options, run:
 ```bash
-python starter_code/preprocess.py --help
+python starter_code/create_splits.py --help
 python starter_code/train_eval.py --help
 ```
