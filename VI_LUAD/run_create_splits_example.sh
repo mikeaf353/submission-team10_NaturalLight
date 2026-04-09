@@ -10,14 +10,15 @@
 #
 # This takes only a few seconds and requires no GPU.
 
-module load miniconda
-conda activate vi_luad
+module load medaihack/spring-2026
+module load python3/3.12.4
+source /projectnb/medaihack/YOUR_TEAM/vi_luad/bin/activate
 
 # Splits are saved to starter_code/splits/ inside your project directory.
-# Make sure you run this script from <your_project_dir>.
+# Make sure you run this script from /projectnb/medaihack/YOUR_TEAM/.
 python starter_code/create_splits.py \
     --label_file /projectnb/medaihack/VI_LUAD_Project/Clinical_Data/hackathon_label.txt \
-    --splits_dir <your_project_dir>/starter_code/splits
+    --splits_dir starter_code/splits
 
 # Optional: use a different number of folds or random seed
 #   --n_folds    3

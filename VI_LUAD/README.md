@@ -2,53 +2,65 @@
 
 This starter code gives you a working end-to-end pipeline for the VI-LUAD classification task. Run it as-is to get a baseline, then explore and improve specific steps. Refer to the provided slide deck for task background, data description, and evaluation criteria.
 
+**Evaluation:** Your final model will be evaluated on external test datasets from 2 different institutions using **log loss** as the primary metric.
+
 ---
 
 ## Labels
 
-The primary task is binary classification — VITUMOR vs. NONVITUMOR:
+The primary task is binary classification - VITUMOR vs. NONVITUMOR:
 
 | Label | Index | Description |
 |-------|-------|-------------|
 | `NONVITUMOR` | 0 | Tumor slide from a patient WITHOUT vascular invasion |
 | `VITUMOR` | 1 | Tumor slide from a patient WITH vascular invasion |
 
-NONTUMOR slides (normal lung tissue) are excluded from the train/test splits but their patch features are extracted so you can leverage them in creative ways — for example, to help the model learn what tumor vs. non-tumor tissue looks like.
+NONTUMOR slides (normal lung tissue) are excluded from the train/test splits but their patch features are extracted so you can leverage them in creative ways, e.g. to help the model learn what tumor vs. non-tumor tissue looks like.
 
 ---
 
 ## Getting Started
 
-Copy the `starter_code` directory to your own project directory and work from there. All paths in the scripts are relative to your project directory.
+Copy the `starter_code` directory to your team's project directory and work from there. All paths in the scripts are relative to your project directory.
 
 ```bash
-cp -r /projectnb/medaihack/starter_code <your_project_dir>/
-cd <your_project_dir>
+cp -r /projectnb/medaihack/VI_LUAD/starter_code /projectnb/medaihack/YOUR_TEAM/
+cd /projectnb/medaihack/YOUR_TEAM
 ```
 
-Run all subsequent commands from `<your_project_dir>`.
+Run all subsequent commands from `/projectnb/medaihack/YOUR_TEAM`.
 
 ---
 
 ## Environment Setup
 
-Each team should create their own conda environment. This avoids package version conflicts across teams and lets you freely install any additional packages your approach requires.
+One person per team should create the team's virtual environment. All team members then activate it for their sessions.
+
+### First-time setup
 
 ```bash
-module load miniconda
-conda create -n vi_luad python=3.11 -y
-conda activate vi_luad
+module load medaihack/spring-2026
+module load python3/3.12.4
+virtualenv /projectnb/medaihack/YOUR_TEAM/vi_luad
+source /projectnb/medaihack/YOUR_TEAM/vi_luad/bin/activate
 pip install -r starter_code/requirements.txt
 ```
 
+The `medaihack/spring-2026` module sets cache directories (`HF_HOME`, `TORCH_HOME`, etc.) to `/projectnb/medaihack/.cache/$USER` so they don't fill your home directory.
+
 `requirements.txt` lists the minimum packages needed to run the provided scripts. You are encouraged to install anything else your approach needs on top of it.
 
-For all subsequent sessions, just activate the environment:
+### Subsequent sessions
+
+For terminal and batch scripts, include these three lines:
 
 ```bash
-module load miniconda
-conda activate vi_luad
+module load medaihack/spring-2026
+module load python3/3.12.4
+source /projectnb/medaihack/YOUR_TEAM/vi_luad/bin/activate
 ```
+
+For **OnDemand** (Jupyter or Code Server): load the two modules in the module list, and place the `source` command in the pre-launch dialog box.
 
 To install additional packages (e.g. if your approach needs `transformers` or `einops`):
 
@@ -56,7 +68,7 @@ To install additional packages (e.g. if your approach needs `transformers` or `e
 pip install <package-name>
 ```
 
-> **Warning:** Do **not** reinstall or upgrade `torch`, `torchvision`, or any `cuda`-related package. The versions in `requirements.txt` are matched to the CUDA driver on the cluster — upgrading them will likely break GPU support.
+> **Warning:** Do **not** reinstall or upgrade `torch`, `torchvision`, or any `cuda`-related package. The versions in `requirements.txt` are matched to the CUDA driver on the cluster. Upgrading them will likely break GPU support.
 
 ---
 
@@ -77,23 +89,23 @@ train_eval.py     ──►  checkpoints/fold_{0-4}.pth          (trained model 
 ```
 
 Features have been pre-extracted from all 709 slides using [UNI2-h](https://huggingface.co/MahmoodLab/UNI2-h) (ViT-Giant pretrained on large-scale pathology images) and are ready to use. Each `.pt` file is a Python dict with two tensors:
-- `data["features"]` — shape `(N_patches, 1536)`, one UNI2-h feature vector per tissue patch
-- `data["coords"]`   — shape `(N_patches, 2)`, ordinal `(col, row)` grid index of each patch (adjacent patches differ by 1). The baseline model does not use coordinates.
+- `data["features"]`: shape `(N_patches, 1536)`, one UNI2-h feature vector per tissue patch
+- `data["coords"]`: shape `(N_patches, 2)`, ordinal `(col, row)` grid index of each patch (adjacent patches differ by 1). The baseline model does not use coordinates.
 
 The number of patches per slide varies with tissue area. The baseline model uses 506 of these slides (VITUMOR and NONVITUMOR only); the remaining 203 NONTUMOR slides have features available for optional use.
 
 ---
 
-## Step 1 — Create Data Splits (`create_splits.py`)
+## Step 1: Create Data Splits (`create_splits.py`)
 
 Reads the clinical label file, groups slides by patient, and creates 5-fold stratified patient-level cross-validation splits. You must run this before training.
 
-**Why patient-level?** The same patient may contribute multiple slides. Splitting at the slide level would allow slides from the same patient to appear in both train and test — a form of data leakage. Patient-level splits prevent this.
+**Why patient-level?** The same patient may contribute multiple slides. Splitting at the slide level would allow slides from the same patient to appear in both train and test, which is a form of data leakage. Patient-level splits prevent this.
 
 **Submit the job:**
 ```bash
-# Edit the script: fill in <your_project_group> and <your_project_dir>
-qsub starter_code/run_create_splits_example.sh
+# Edit the script: fill in YOUR_TEAM with your team's directory name
+bash starter_code/run_create_splits_example.sh
 ```
 
 Since no GPU is required, this completes in seconds. You can also run it directly in a terminal:
@@ -134,7 +146,7 @@ Done! Splits saved to: starter_code/splits
 
 ---
 
-## Step 2 — Training and Evaluation (`train_eval.py`)
+## Step 2: Training and Evaluation (`train_eval.py`)
 
 Trains a Multiple Instance Learning (MIL) model on the pre-extracted UNI2-h features and evaluates it with 5-fold cross-validation. Metrics are reported both per-slide and per-patient.
 
@@ -151,8 +163,8 @@ When submitting your job, pass:
 ### Submit the job
 
 ```bash
-# Edit the script: fill in <your_project_group> and <your_project_dir>
-qsub starter_code/run_train_eval_example.sh
+# Edit the script: fill in YOUR_TEAM with your team's directory name
+bash starter_code/run_train_eval_example.sh
 ```
 
 **Monitor:**
@@ -163,7 +175,7 @@ tail -f train_eval.log
 **Expected output (abridged):**
 ```
 Device: cuda
-  GPU: NVIDIA A100 80GB PCIe
+  GPU: NVIDIA L40S
 
 ============================================================
 FOLD 0  —  403 train slides / 103 test slides
@@ -237,7 +249,7 @@ Job finished: Wed Apr  1 23:19:37 EDT 2026
 ==========================================
 ```
 
-The baseline achieves ~0.65 patient-level AUC. NONVITUMOR patients are consistently harder to classify correctly — this is the primary failure mode and a natural starting point for improvement.
+The baseline achieves ~0.65 patient-level AUC. NONVITUMOR patients are consistently harder to classify correctly. This is the primary failure mode and a natural starting point for improvement.
 
 Each `predictions/fold_{i}.json` contains one entry per test slide with `filename`, `pid`, `true_label`, `pred_label`, and per-class probabilities (`NONVITUMOR`, `VITUMOR`).
 
@@ -250,7 +262,7 @@ Each `predictions/fold_{i}_patients.json` contains one entry per test patient wi
 After training your directory should look like:
 
 ```
-<your_project_dir>/
+/projectnb/medaihack/YOUR_TEAM/
 ├── starter_code/
 │   ├── create_splits.py           # patient-level cross-validation splits
 │   ├── model.py                   # MIL model definition
@@ -302,11 +314,11 @@ If you want to view the original whole slide images, you can use QuPath on the S
 
 The baseline is intentionally simple. Here are directions worth exploring:
 
-- **Better aggregation**: the baseline uses mean pooling (all patches weighted equally) — consider attention pooling, clustering, or transformer-based aggregation over patches.
-- **Spatial models**: each `.pt` file includes `data["coords"]` — the ordinal `(col, row)` grid position of every patch. These coordinates can be used to build a spatial graph between neighboring patches (e.g., with PyTorch Geometric) or to add positional encodings before aggregation.
+- **Better aggregation**: the baseline uses mean pooling (all patches weighted equally). Consider attention pooling, clustering, or transformer-based aggregation over patches.
+- **Spatial models**: each `.pt` file includes `data["coords"]`, the ordinal `(col, row)` grid position of every patch. These coordinates can be used to build a spatial graph between neighboring patches (e.g., with PyTorch Geometric) or to add positional encodings before aggregation.
 - **Class imbalance**: NONVITUMOR (150 patients) outnumbers VITUMOR (95 patients). Try class-weighted loss or label smoothing if your model skews toward one class.
-- **Longer training**: the baseline runs only 20 epochs with no scheduler. A cosine annealing schedule may help. For early stopping, consider adding a validation split — you can do this by modifying `create_patient_splits` in `create_splits.py` to produce train/val/test splits instead of train/test.
-- **Leveraging NONTUMOR slides**: 203 NONTUMOR slides have features available in the shared features directory. These are excluded from the train/test splits but can be used in creative ways — for example, as additional negative examples or to help the model learn discriminative tumor features.
+- **Longer training**: the baseline runs only 20 epochs with no scheduler. A cosine annealing schedule may help. For early stopping, consider adding a validation split by modifying `create_patient_splits` in `create_splits.py` to produce train/val/test splits instead of train/test.
+- **Leveraging NONTUMOR slides**: 203 NONTUMOR slides have features available in the shared features directory. These are excluded from the train/test splits but can be used in creative ways, e.g. as additional negative examples or to help the model learn discriminative tumor features.
 
 For a full list of configurable options, run:
 ```bash

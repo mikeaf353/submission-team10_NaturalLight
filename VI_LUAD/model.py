@@ -153,7 +153,7 @@ class SlideDataset(Dataset):
         features : torch.Tensor of shape (N_patches, feature_dim)
                    All patch feature vectors for this slide.
                    N_patches varies per slide — see mil_collate_fn below.
-        label    : int — class index (0=VITUMOR, 1=NONVITUMOR, 2=NONTUMOR)
+        label    : int — class index (0=NONVITUMOR, 1=VITUMOR)
         """
         sample = self.samples[idx]
         # Load the pre-extracted feature tensor from disk.
@@ -263,7 +263,7 @@ class MILClassifier(nn.Module):
     ----------
     feature_dim : patch feature dimension (default 1536 — matches UNI2-h ViT-Giant encoder)
     hidden_dim  : size of the hidden layer in the MLP head. Try 128, 256, or 512.
-    num_classes : number of output classes (3 — don't change)
+    num_classes : number of output classes (2 — binary VI classification)
     dropout     : dropout probability after the ReLU in the MLP head.
                   Dropout randomly zeros hidden units during training to
                   regularize against overfitting. Set to 0.0 to disable.
@@ -365,7 +365,7 @@ def build_model(feature_dim: int = FEATURE_DIM,
     ----------
     feature_dim : patch feature dimension (default 1536 — UNI2-h ViT-Giant)
     hidden_dim  : hidden size for the MLP head
-    num_classes : number of output classes (3 — do not change)
+    num_classes : number of output classes (2 — binary VI classification)
     dropout     : dropout probability in the MLP head
 
     Returns

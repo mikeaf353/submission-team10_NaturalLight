@@ -8,16 +8,17 @@
 # Usage (from your project directory in an interactive GPU session):
 #   bash starter_code/run_train_eval_example.sh
 
-module load miniconda
-conda activate vi_luad
+module load medaihack/spring-2026
+module load python3/3.12.4
+source /projectnb/medaihack/YOUR_TEAM/vi_luad/bin/activate
 
 # Pre-extracted UNI2-h features (shared, read-only — do not copy these):
 FEATURES_DIR=/projectnb/medaihack/VI_LUAD_Project/WSI_Data/processed
 
-# Paths under your project directory — replace <your_project_dir> with your actual path:
-SPLITS_DIR=<your_project_dir>/starter_code/splits
-CHECKPOINTS_DIR=<your_project_dir>/checkpoints
-PREDICTIONS_DIR=<your_project_dir>/predictions
+# Paths under your project directory (run this script from /projectnb/medaihack/YOUR_TEAM/):
+SPLITS_DIR=starter_code/splits
+CHECKPOINTS_DIR=checkpoints
+PREDICTIONS_DIR=predictions
 
 python starter_code/train_eval.py \
     --features_dir $FEATURES_DIR \
