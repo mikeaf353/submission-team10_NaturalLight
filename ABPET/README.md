@@ -9,17 +9,21 @@ Predict **centiloid scores** from preprocessed 3D amyloid PET brain scans. Centi
 ## Setup
 
 ```bash
-conda create -n abpet python=3.11 -y
-conda activate abpet
+module load medaihack/spring-2026
+module load python3/3.12.4
+
+# Replace YOUR_TEAM and venv_name with your team directory and preferred name
+virtualenv /projectnb/medaihack/YOUR_TEAM/venv_name
+source  /projectnb/medaihack/YOUR_TEAM/venv_name/bin/activate
 pip install -r requirements.txt
 ```
 
 ## Data
 
-Cohort | N Samples | Description                               |
--------|-----------|-------------------------------------------|
-NACC   | 1,500     | National Alzheimer's Coordinating Center  |
-A4     | 1,000     | Anti-Amyloid Treatment in Asymptomatic AD |
+| Split      | Cohort | N Samples | Description                               |
+|------------|--------|-----------|-------------------------------------------|
+| Training   | NACC   | 2,000     | National Alzheimer's Coordinating Center  |
+| Validation | A4     | 1,000     | Anti-Amyloid Treatment in Asymptomatic AD |
 
 Each sample is a preprocessed `.npy` file with an associated centiloid score and tracer label.
 
@@ -85,25 +89,27 @@ img = (img - img.min()) / (img.max() - img.min())
 ABPET/
 ├── data/
 │   ├── npy_files/       # All .npy volumes
-│   ├── train.csv        # Training split
-│   └── val.csv          # Validation split
+│   ├── train.csv        # Training split (stratified by tracer)
+│   └── val.csv          # Validation split (stratified by tracer)
 ├── code/
 │   ├── model.py         # 3D CNN architecture
 │   ├── train.py         # Training script
 │   ├── predict.py       # Inference script
 │   ├── dataset.py       # Shared dataset class
-│   └── losses.py        # Loss functions
+│   ├── losses.py        # Loss functions
+│   └── split_data.py    # Re-generate train/val splits
 ├── README.md
 └── requirements.txt
 ```
 
 ## Getting Started
 
+To get started, you can visualize the different images using the visualize_pet.ipynb.
+
 ```bash
-# Create conda environment
-conda create -n abpet python=3.11 -y
-conda activate abpet
-pip install -r requirements.txt 
+# Re-generate train/val split (optional, already done)
+cd code
+python split_data.py
 
 # Train
 python train.py --train_csv ../data/train.csv --val_csv ../data/val.csv
@@ -123,4 +129,4 @@ Models will be evaluated on the validation set using:
 - The centiloid distribution is often skewed (many low values, fewer high values). Consider how your loss function handles this.
 - Tracer conditioning can be important — consider integrating the `TRACER.AMY` column.
 - The data is already normalized to [0, 1], so you can feed it directly into your network.
-- 3D medical images are memory-intensive. Watch your batch size.
+- 3D medical images are memory-intensive. Watch your batch size and consider mixed-precision training (`torch.cuda.amp`).
