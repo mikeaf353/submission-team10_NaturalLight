@@ -24,7 +24,7 @@ if [ $# -lt 1 ]; then
 fi
 
 # Activate virtual environment
-source "$SCRIPT_DIR/../../.venv/bin/activate"
+source "$SCRIPT_DIR/.venv/bin/activate"
 
 INPUT="$1"
 OUTPUT="${2:-predictions.csv}"
