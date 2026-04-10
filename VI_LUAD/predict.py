@@ -168,15 +168,12 @@ def compute_log_loss(results, prob_key="prob_vitumor"):
 # SECTION 5: MAIN (do not modify)
 # ============================================================================
 
-LEADERBOARD_OUTPUT_ROOT = "/projectnb/medaihack/VI_LUAD_Project/private/team_leaderboard_outputs"
-
-
 def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
-    # Resolve output directory from team name
-    preds_dir = os.path.join(LEADERBOARD_OUTPUT_ROOT, args.team)
+    # Resolve output directory
+    preds_dir = os.path.join(args.out_dir, args.team)
 
     # Load leaderboard metadata
     print(f"\n[Loading leaderboard metadata]")
@@ -189,10 +186,10 @@ def main(args):
     model = load_checkpoint(args.checkpoint, device,
                             args.hidden_dim, args.dropout)
 
-    # Run inference
+    # Run inference (features live alongside the metadata file)
+    features_dir = str(Path(args.test_metadata).parent)
     print(f"\n[Running inference on leaderboard slides]")
-    slide_results = run_inference(model, test_metadata, args.features_dir,
-                                 device)
+    slide_results = run_inference(model, test_metadata, features_dir, device)
 
     # Patient aggregation
     print(f"\n[Aggregating per-patient predictions]")
@@ -246,13 +243,13 @@ def parse_args():
     )
     parser.add_argument(
         "--test_metadata",
-        default="/projectnb/medaihack/VI_LUAD_Project/private/processed_test/leaderboard_metadata.json",
-        help="DO NOT CHANGE. Path to leaderboard_metadata.json.",
+        required=True,
+        help="Path to leaderboard_metadata.json (provided by the organizers).",
     )
     parser.add_argument(
-        "--features_dir",
-        default="/projectnb/medaihack/VI_LUAD_Project/private/processed_test",
-        help="DO NOT CHANGE. Directory containing pre-extracted test features.",
+        "--out_dir",
+        default="predictions",
+        help="Directory to write prediction outputs (default: predictions/)",
     )
     parser.add_argument("--hidden_dim", type=int, default=256,
                         help="Must match the hidden_dim used during training")
