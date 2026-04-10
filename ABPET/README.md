@@ -265,7 +265,7 @@ Before the deadline, make sure your repository is in order:
 3. If you changed the model architecture, `predict.py` reflects it (see `# MODEL` markers)
 4. Test end-to-end: `bash predict.sh /projectnb/medaihack/ABPET/data/val.csv` should produce `predictions.csv` without errors
 
-The judges will clone your repository and run `predict.sh` against the held-out test set.
+The judges will copy your code repository and run `predict.sh` against the held-out test set.
 
 ## Evaluation
 
