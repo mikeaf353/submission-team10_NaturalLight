@@ -13,6 +13,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from dataset import PETDataset
+# TODO: if you replace BaselineCNN with your own architecture, update this import
+# and the model instantiation below (search "# MODEL").
 from model import BaselineCNN
 
 
@@ -26,7 +28,7 @@ def predict(model, loader, device):
         images = images.to(device)
         tracers = tracers.to(device)
 
-        with torch.amp.autocast("cuda"):
+        with torch.amp.autocast(device.type):
             preds = model(images, tracers)
 
         all_preds.append(preds.cpu())
@@ -61,7 +63,7 @@ def main():
         num_workers=args.num_workers, pin_memory=True,
     )
 
-    # --- Model ---
+    # --- Model --- # MODEL
     model = BaselineCNN(num_tracers=num_tracers).to(device)
 
     # Handle torch.compile prefix in state_dict keys

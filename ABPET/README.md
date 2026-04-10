@@ -36,7 +36,7 @@ module load python3/3.12.4
 virtualenv /projectnb/medaihack/YOUR_TEAM/venv_name
 source /projectnb/medaihack/YOUR_TEAM/venv_name/bin/activate
 pip install -r requirements.txt
-````
+```
 
 ### Subsequent sessions
 
@@ -49,6 +49,14 @@ source /projectnb/medaihack/YOUR_TEAM/venv_name/bin/activate
 ```
 
 For **OnDemand** (Jupyter or Code Server): load the two modules in the module list, and place the `source` command in the pre-launch dialog box.
+
+To use your venv as a Jupyter kernel, run this once after activating it:
+
+```bash
+python -m ipykernel install --user --name venv_name --display-name "Python (venv_name)"
+```
+
+Then refresh JupyterLab and select **Python (venv_name)** from the kernel list.
 
 To install additional packages (e.g. if your approach needs `transformers` or `einops`):
 
@@ -75,7 +83,7 @@ Each sample is a preprocessed `.npy` file with an associated centiloid score and
 | ------------ | ----- | ------------------------------------------------------ |
 | `npy_path`   | str   | Path to the preprocessed `.npy` file                   |
 | `CENTILOIDS` | float | Target — amyloid burden score (typically 0–150+)       |
-| `TRACER.AMY` | str   | Radiotracer used (e.g., Florbetapir, Florbetaben, PIB) |
+| `TRACER.AMY` | str   | Radiotracer used: `FBP`, `FBB`, `NAV`, `PIB`           |
 | `ID`         | str   | Subject identifier                                     |
 
 ### Image Format
@@ -88,7 +96,16 @@ Each `.npy` file contains a single preprocessed PET volume:
 
 ### Why Tracer Matters
 
-Different radiotracers (Florbetapir, Florbetaben, PIB, etc.) bind to amyloid with different affinities and produce different uptake patterns in PET images. The centiloid scale was designed to harmonize across tracers, but the raw images still differ by tracer. Your model should account for this — a tracer embedding is one common approach.
+The four tracers in this dataset are:
+
+| Code  | Full name      |
+| ----- | -------------- |
+| `FBP` | Florbetapir    |
+| `FBB` | Florbetaben    |
+| `NAV` | Florbetanav    |
+| `PIB` | Pittsburgh Compound B |
+
+Each binds to amyloid with different affinity and produces different uptake patterns. The centiloid scale was designed to harmonize across tracers, but the raw images still differ by tracer. Your model should account for this — a tracer embedding is one common approach.
 
 ## Preprocessing Already Applied
 
@@ -161,12 +178,17 @@ img = (img - img.min()) / (img.max() - img.min())
 
 To get started, you can visualize the different images using `visualize_pet.ipynb`.
 
+**Interactive (OnDemand terminal):**
+
 ```bash
+cd /projectnb/medaihack/YOUR_TEAM/medaihack/ABPET
+source /projectnb/medaihack/YOUR_TEAM/venv_name/bin/activate
+
 # Train
 python train.py --train_csv /projectnb/medaihack/ABPET/data/train.csv --val_csv /projectnb/medaihack/ABPET/data/val.csv
 
 # Predict
-python predict.py --csv /projectnb/medaihack/ABPET/data/val.csv --checkpoint /projectnb/medaihack/ABPET/medaihack/ABPET/checkpoints/best_model.pt
+python predict.py --csv /projectnb/medaihack/ABPET/data/val.csv --checkpoint checkpoints/best_model.pt
 ```
 
 ## Pipeline
@@ -191,29 +213,84 @@ losses.py   --->  regression loss
                   (MAE / MSE)
             |
             v
-train.py    --->  checkpoints/best_model.pt        (best model weights)
-                  logs/                             (training log file)
-                  results/                          (metrics CSV and plots)
+train.py    --->  checkpoints/best_model.pt              (best model weights)
+                  logs/train_{timestamp}.log             (training log)
+                  results/metrics_{timestamp}.csv        (per-epoch metrics)
+                  results/curves_{timestamp}.png         (loss / MAE / r plots)
+                  results/val_report_{timestamp}.csv     (best-epoch MAE and r, overall + per tracer)
                   console: train loss, val MAE, Pearson correlation
             |
             v
-predict.py  --->  predictions.csv / console output
-                  predicted centiloid score per subject
+predict.py  --->  predictions.csv
+                  columns: ID, npy_path, TRACER.AMY, PREDICTED_CENTILOIDS
 ```
+
+## Outputs
+
+After training the following files are created automatically:
+
+| File | Description |
+| ---- | ----------- |
+| `checkpoints/best_model.pt` | Best model weights (lowest val MAE) |
+| `logs/train_{timestamp}.log` | Full training log |
+| `results/metrics_{timestamp}.csv` | Per-epoch train loss, val MAE, val r |
+| `results/curves_{timestamp}.png` | Loss / MAE / correlation plots |
+| `results/val_report_{timestamp}.csv` | MAE and Pearson r for best checkpoint — overall and broken down by tracer |
+
+## Baseline Performance
+
+The unmodified starter code achieves the following on the validation set:
+
+| Tracer | N | MAE (CL) | Pearson r |
+| ------ | --- | -------- | --------- |
+| **ALL** | 500 | **19.77** | **0.790** |
+| FBP | 236 | 19.28 | 0.797 |
+| FBB | 114 | 20.04 | 0.804 |
+| PIB | 133 | 21.17 | 0.790 |
+| NAV | 17  | 13.86 | 0.946 |
+
+Your goal is to beat this baseline. Lower MAE and higher Pearson r are better.
+
+## Submission
+
+Before the deadline, make sure your repository is in order:
+
+1. Your best checkpoint is saved at `checkpoints/best_model.pt`
+2. `predict.sh` has your team's venv path hardcoded (replace the `.venv` line)
+3. If you changed the model architecture, `predict.py` reflects it (see `# MODEL` markers)
+4. Test end-to-end: `bash predict.sh /projectnb/medaihack/ABPET/data/val.csv` should produce `predictions.csv` without errors
+
+The judges will clone your repository and run `predict.sh` against the held-out test set.
 
 ## Evaluation
 
-Models will be evaluated on the validation set using:
+Models will be evaluated on a held-out test set. The judges will run:
 
-* **Primary metric:** Mean Absolute Error (MAE) in centiloid units
-* **Secondary metric:** Pearson correlation coefficient between predicted and true centiloid scores
+```bash
+bash predict.sh <test.csv> <checkpoint.pt> predictions.csv
+```
+
+To test your own predictions on the validation set:
+
+```bash
+cd /projectnb/medaihack/ABPET/medaihack/ABPET
+source /projectnb/medaihack/YOUR_TEAM/venv_name/bin/activate
+python predict.py --csv /projectnb/medaihack/ABPET/data/val.csv --checkpoint checkpoints/best_model.pt --output predictions.csv
+```
+
+This calls `predict.py`, which must output a CSV with a `PREDICTED_CENTILOIDS` column. **If you replace `BaselineCNN` with your own model, you must update the import and model instantiation in `predict.py`** (marked with `# MODEL`). Make sure `predict.sh` points to your best checkpoint.
+
+Scoring metrics:
+
+* **Primary:** Mean Absolute Error (MAE) in centiloid units
+* **Secondary:** Pearson correlation coefficient between predicted and true centiloid scores
 
 ## Tips
 
 * The centiloid distribution is often skewed (many low values, fewer high values). Consider how your loss function handles this.
 * Tracer conditioning can be important — consider integrating the `TRACER.AMY` column.
 * The data is already normalized to `[0, 1]`, so you can feed it directly into your network.
-* 3D medical images are memory-intensive. Watch your batch size and consider mixed-precision training (`torch.cuda.amp`).
+* 3D medical images are memory-intensive. Watch your batch size and consider mixed-precision training (`torch.amp`).
 
 
 

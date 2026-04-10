@@ -87,7 +87,7 @@ def train_one_epoch(model, loader, optimizer, criterion, device, scaler, max_gra
 @torch.no_grad()
 def validate(model, loader, device):
     model.eval()
-    all_preds, all_targets = [], []
+    all_preds, all_targets, all_tracers = [], [], []
 
     for images, centiloids, tracers in loader:
         images = images.to(device, non_blocking=True)
@@ -98,12 +98,42 @@ def validate(model, loader, device):
 
         all_preds.append(preds.cpu())
         all_targets.append(centiloids)
+        all_tracers.append(tracers.cpu())
 
     preds = torch.cat(all_preds)
     targets = torch.cat(all_targets)
+    tracer_ids = torch.cat(all_tracers)
     mae = (preds - targets).abs().mean().item()
     corr = torch.corrcoef(torch.stack([preds, targets]))[0, 1].item()
-    return mae, corr
+    return mae, corr, preds, targets, tracer_ids
+
+
+def save_val_report(preds, targets, tracer_ids, tracer_map, results_dir, timestamp):
+    """Write overall + per-tracer MAE and Pearson r to a CSV."""
+    id_to_name = {v: k for k, v in tracer_map.items()}
+
+    rows = []
+
+    def metrics(p, t):
+        mae = (p - t).abs().mean().item()
+        corr = torch.corrcoef(torch.stack([p, t]))[0, 1].item() if len(p) > 1 else float("nan")
+        return mae, corr, len(p)
+
+    mae, corr, n = metrics(preds, targets)
+    rows.append({"tracer": "ALL", "n": n, "mae": mae, "pearson_r": corr})
+
+    for tid in sorted(tracer_ids.unique().tolist()):
+        mask = tracer_ids == tid
+        mae, corr, n = metrics(preds[mask], targets[mask])
+        rows.append({"tracer": id_to_name[tid], "n": n, "mae": mae, "pearson_r": corr})
+
+    report_path = results_dir / f"val_report_{timestamp}.csv"
+    with open(report_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["tracer", "n", "mae", "pearson_r"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return report_path
 
 
 # ---------------------------------------------------------------------------
@@ -230,13 +260,14 @@ def main():
     for epoch in range(1, args.epochs + 1):
         t0 = time.time()
         train_loss = train_one_epoch(model, train_loader, optimizer, criterion, device, scaler)
-        val_mae, val_corr = validate(model, val_loader, device)
+        val_mae, val_corr, val_preds, val_targets, val_tracer_ids = validate(model, val_loader, device)
         epoch_time = time.time() - t0
 
         is_best = val_mae < best_mae
         tag = ""
         if is_best:
             best_mae = val_mae
+            best_preds, best_targets, best_tracer_ids = val_preds, val_targets, val_tracer_ids
             epochs_without_improvement = 0
             torch.save({
                 "model_state_dict": model.state_dict(),
@@ -275,9 +306,14 @@ def main():
     # --- Plots ---
     save_plots(history, results_dir, timestamp)
 
+    # --- Validation report for best checkpoint ---
+    report_path = save_val_report(best_preds, best_targets, best_tracer_ids,
+                                  train_ds.tracer_map, results_dir, timestamp)
+
     logger.info(f"Best validation MAE: {best_mae:.2f} centiloid units")
     logger.info(f"Model saved to {checkpoint_path}")
     logger.info(f"Metrics: {metrics_path}")
+    logger.info(f"Val report: {report_path}")
     if HAS_MPL:
         logger.info(f"Plots: {results_dir / f'curves_{timestamp}.png'}")
 
