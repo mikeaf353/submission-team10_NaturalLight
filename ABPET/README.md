@@ -70,6 +70,14 @@ pip install <package-name>
 
 ## Data
 
+```text
+/projectnb/medaihack/ABPET/
+└── data/
+    ├── npy_files/               # All .npy volumes
+    ├── train.csv                # Training split (2,000 samples)
+    └── val.csv                  # Validation split (500 samples)
+```
+
 | Split      | Cohorts   | N Samples | Description                                              |
 | ---------- | --------- | --------- | -------------------------------------------------------- |
 | Training   | NACC + A4 | 2,000     | 1,195 NACC + 805 A4 samples                              |
@@ -149,16 +157,6 @@ Each volume is independently normalized to the `[0, 1]` range:
 
 ```python
 img = (img - img.min()) / (img.max() - img.min())
-```
-
-## Data Structure
-
-```text
-/projectnb/medaihack/ABPET/
-└── data/
-    ├── npy_files/               # All .npy volumes
-    ├── train.csv                # Training split (2,000 samples)
-    └── val.csv                  # Validation split (500 samples)
 ```
 
 ## Repository Structure
@@ -265,7 +263,7 @@ Before the deadline, make sure your repository is in order:
 3. If you changed the model architecture, `predict.py` reflects it (see `# MODEL` markers)
 4. Test end-to-end: `bash predict.sh /projectnb/medaihack/ABPET/data/val.csv` should produce `predictions.csv` without errors
 
-The judges will copy your code repository and run `predict.sh` against the held-out test set.
+The judges will clone your repository and run `predict.sh` against the held-out test set.
 
 ## Evaluation
 
