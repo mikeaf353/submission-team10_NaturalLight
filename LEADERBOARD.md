@@ -4,13 +4,14 @@ Ranked by binary log loss (lower is better). Baseline starter code performance: 
 
 | Rank | Team | Log Loss |
 |------|------|----------|
-| 1 | Team 22 | 0.431276 | 
-| 2 | Team 6 | 0.439456 | 
-| 3 | Team 19 | 0.439456 | 
-| 4 | Team 1 | 0.439456 | 
-| 5 | Team 12 | 0.456419 | 
-| 6 | Team 8 | 0.456419 | 
-| 7 | Team 15 | 0.456419 | 
+| 1 | Team 6 | 0.439456 |
+| 2 | Team 19 | 0.439456 |
+| 3 | Team 1 | 0.439456 |
+| 4 | Team 10 | 0.456419 |
+| 5 | Team 12 | 0.456419 |
+| 6 | Team 8 | 0.456419 |
+| 7 | Team 15 | 0.456419 |
+| 8 | Team 22 | 0.459826 |
 
 # ABPET Leaderboard - Ranked by MAE (lower is better)
 
