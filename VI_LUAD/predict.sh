@@ -1,4 +1,17 @@
 #!/bin/bash -l
+# predict.sh — Run leaderboard inference for VI-LUAD
+# ====================================================
+# Usage:
+#     bash predict.sh <test_metadata.json> [out_dir]
+#
+# Arguments:
+#     test_metadata.json  — path to the leaderboard metadata JSON file
+#                           (provided by the organizers at evaluation time)
+#     out_dir             — (optional) directory to write predictions (default: predictions/)
+#
+# Example:
+#     bash predict.sh /path/to/leaderboard_metadata.json
+#     bash predict.sh /path/to/leaderboard_metadata.json /path/to/output
 
 ###############################################################################
 #                        LEADERBOARD PREDICTION JOB
@@ -41,9 +54,18 @@
 
 # =============================================================================
 
+if [ $# -lt 1 ]; then
+    echo "Usage: bash predict.sh <test_metadata.json> [out_dir]"
+    exit 1
+fi
+
 # ---- Fill in your settings ----
 TEAM=YOUR_TEAM                    # same as YOUR_TEAM in README
 CHECKPOINT=PATH/TO/YOUR_CKPT.pth
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEST_METADATA="$1"
+OUT_DIR="${2:-$SCRIPT_DIR/predictions}"
 
 # --- cd to the team's project directory --------------------------------------
 
@@ -62,7 +84,9 @@ echo "[INFO] Virtual environment '/projectnb/medaihack/$TEAM/vi_luad' activated.
 
 echo "[INFO] Running predict.py ..."
 python starter_code/predict.py \
-    --team        $TEAM \
-    --checkpoint  $CHECKPOINT
+    --team          $TEAM \
+    --checkpoint    $CHECKPOINT \
+    --test_metadata "$TEST_METADATA" \
+    --out_dir       "$OUT_DIR"
 
 echo "[INFO] predict.py finished with exit code $?"
