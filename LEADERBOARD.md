@@ -35,8 +35,8 @@
 | 9 | Team 16 | 28.2612 |
 | 10 | Team 9 | 28.5695 |
 | 11 | Team 7 | 30.1555 |
-| 12 | Team 12 | nan |
-| 13 | Team 8 | nan |
+| 12 | Team 8 | 38.8534 |
+| 13 | Team 12 | nan |
 
 # VI-LUAD Leaderboard
 
