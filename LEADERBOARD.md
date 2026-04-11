@@ -4,9 +4,10 @@ Ranked by binary log loss (lower is better). Baseline starter code performance: 
 
 | Rank | Team | Log Loss |
 |------|------|----------|
-| 1 | Team 22 | 0.428825 | 
+| 1 | Team 22 | 0.431276 | 
 | 2 | Team 6 | 0.439456 | 
 | 3 | Team 19 | 0.439456 | 
 | 4 | Team 1 | 0.439456 | 
-| 5 | Team 8 | 0.456419 | 
-| 6 | Team 15 | 0.456419 | 
+| 5 | Team 12 | 0.456419 | 
+| 6 | Team 8 | 0.456419 | 
+| 7 | Team 15 | 0.456419 | 
