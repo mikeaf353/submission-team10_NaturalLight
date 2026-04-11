@@ -19,15 +19,15 @@
 
 # ABPET Leaderboard
 
-| Rank | Team | MAE | Samples |
-|------|------|-----|---------|
-| 1 | Team 24 | 28.1010 | 426 |
-| 2 | Baseline | 28.1269 | 426 |
-| 3 | Team 25 | 28.1269 | 426 |
-| 4 | Team 16 | 28.2612 | 426 |
-| 5 | Team 7 | 30.1555 | 426 |
-| 6 | Team 23 | 32.2364 | 426 |
-| 7 | Team 12 | nan | 434 |
+| Rank | Team | MAE |
+|------|------|-----|
+| 1 | Team 24 | 28.1010 |
+| 2 | Team 25 | 28.1269 |
+| 3 | Baseline | 28.1269 |
+| 4 | Team 16 | 28.2612 |
+| 5 | Team 7 | 30.1555 |
+| 6 | Team 23 | 32.2364 |
+| 7 | Team 12 | nan |
 
 # VI-LUAD Leaderboard
 
