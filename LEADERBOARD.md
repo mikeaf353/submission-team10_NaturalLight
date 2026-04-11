@@ -12,9 +12,7 @@ Ranked by binary log loss (lower is better). Baseline starter code performance: 
 | 6 | Team 8 | 0.456419 | 
 | 7 | Team 15 | 0.456419 | 
 
-# ABPET Leaderboard
-
-Ranked by MAE (lower is better). Baseline starter code performance: MAE = 28.1269
+# ABPET Leaderboard - Ranked by MAE (lower is better)
 
 | Rank | Team | MAE | Samples |
 |------|------|-----|---------|
