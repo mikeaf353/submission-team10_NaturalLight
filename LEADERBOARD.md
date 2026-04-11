@@ -1,17 +1,20 @@
 # BKBC Leaderboard
 
-Ranked by binary log loss (lower is better). Baseline starter code performance: Log Loss = 0.439456
+Ranked by binary log loss (lower is better).
 
-| Rank | Team | Log Loss |
-|------|------|----------|
-| 1 | Team 6 | 0.439456 |
-| 2 | Team 19 | 0.439456 |
-| 3 | Team 1 | 0.439456 |
-| 4 | Team 10 | 0.456419 |
-| 5 | Team 12 | 0.456419 |
-| 6 | Team 8 | 0.456419 |
-| 7 | Team 15 | 0.456419 |
-| 8 | Team 22 | 0.459826 |
+Last updated: 2026-04-11 11:57:39
+
+| Rank | Team | Log Loss | Submitted |
+|------|------|----------|-----------|
+| 1 | **Baseline** | 0.439456 | — |
+| 2 | Team 6 | 0.439456 | 2026-04-11 11:57:24 |
+| 3 | Team 19 | 0.439456 | 2026-04-11 11:02:53 |
+| 4 | Team 1 | 0.439456 | 2026-04-11 11:30:11 |
+| 5 | Team 10 | 0.456419 | 2026-04-11 11:57:22 |
+| 6 | Team 12 | 0.456419 | 2026-04-11 11:57:24 |
+| 7 | Team 8 | 0.456419 | 2026-04-11 11:57:11 |
+| 8 | Team 15 | 0.456419 | 2026-04-11 11:57:21 |
+| 9 | Team 22 | 0.459826 | 2026-04-11 11:57:22 |
 
 # ABPET Leaderboard - Ranked by MAE (lower is better)
 
